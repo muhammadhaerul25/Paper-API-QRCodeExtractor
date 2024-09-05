@@ -22,12 +22,18 @@ class QRCodeExtractor:
         self.pdf_name = pdf_name  
         self.model = YOLO("yolov8_qrcode_detector.pt")
 
+
+    def generate_random_id(self):
+        return str(uuid.uuid4())
+    
+
     def pdf_to_images(self):
         pdf_document = fitz.open(self.pdf_path)
         return [
             Image.open(BytesIO(page.get_pixmap(matrix=fitz.Matrix(4.0, 4.0)).tobytes("png")))
             for page in pdf_document
         ]
+
 
     def detect_qrcode(self, image):
         results = self.model([np.array(image)])
@@ -37,26 +43,33 @@ class QRCodeExtractor:
             for x1, y1, x2, y2 in result.boxes.xyxy.numpy()
         ]
 
-    def read_qrcode(self, image_qrcode):
-        data, _, _ = cv2.QRCodeDetector().detectAndDecode(np.array(image_qrcode))
-        return data or "not found"
 
-    def generate_random_id(self):
-        return str(uuid.uuid4())
+    def read_qrcode(self, image_qrcode):
+        image_qrcode = np.array(image_qrcode)
+        detector = cv2.QRCodeDetector()
+        data, points, _ = detector.detectAndDecode(image_qrcode)
+        if data:
+            return data
+        else:
+            return None  # Return None instead of "value not found"
+
 
     def extract_qr_codes(self):
         images = self.pdf_to_images()
+        qr_codes = []
+        for page_num, image in enumerate(images, start=1):
+            image_qrcodes = self.detect_qrcode(image)
+            for image_qrcode in image_qrcodes:
+                qrcode_value = self.read_qrcode(image_qrcode)
+                if qrcode_value:  # Only add if a QR code is actually detected and decoded
+                    qr_codes.append({
+                        "qrcode_id": self.generate_random_id(),
+                        "qrcode_value": qrcode_value,
+                        "page": page_num
+                    })
         return {
             "file_name": self.pdf_name,
-            "qr_codes": [
-                {
-                    "qrcode_id": self.generate_random_id(),
-                    "qrcode_value": self.read_qrcode(image_qrcode),
-                    "page": page_num
-                }
-                for page_num, image in enumerate(images, start=1)
-                for image_qrcode in self.detect_qrcode(image)
-            ]
+            "qr_codes": qr_codes
         }
 
 
