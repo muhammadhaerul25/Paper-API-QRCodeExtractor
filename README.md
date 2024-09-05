@@ -1,0 +1,1 @@
+# Paper-API-QRCodeExtractor
