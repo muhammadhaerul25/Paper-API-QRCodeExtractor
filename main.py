@@ -5,6 +5,7 @@ import requests
 import fitz
 import cv2
 import numpy as np
+import uvicorn
 from io import BytesIO
 from PIL import Image
 from urllib.parse import urlparse
@@ -109,3 +110,7 @@ async def extract_qr_codes_from_pdf_url(url: str):
     pdf_path = await save_temp_file(response.content)
     pdf_name = os.path.basename(urlparse(url).path)
     return JSONResponse(content=await handle_pdf_extraction(pdf_path, pdf_name))
+
+
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=8000, log_level="debug")
