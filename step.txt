@@ -1,5 +1,0 @@
-gcloud init
-gcloud config set project nltk003
-gcloud app app deploy app.yaml
-
-gcloud app browse
