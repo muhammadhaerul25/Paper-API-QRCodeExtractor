@@ -1,17 +1,17 @@
-import os
-import uuid
-import tempfile
-import requests
-import fitz
-import cv2
-import uvicorn
-import numpy as np
-from io import BytesIO
-from PIL import Image
-from urllib.parse import urlparse
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.responses import JSONResponse
+from urllib.parse import urlparse
+import requests
+import tempfile
+import os
+import uuid
+import fitz
+from io import BytesIO
+from PIL import Image
+import numpy as np
+import cv2
 from ultralytics import YOLO
+import uvicorn
 
 app = FastAPI()
 
@@ -70,6 +70,7 @@ class QRCodeExtractor:
             "qr_codes": qr_codes
         }
 
+
 async def save_temp_file(file_content, suffix):
     with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp_file:
         tmp_file.write(file_content)
@@ -85,13 +86,13 @@ async def handle_extraction(file_path, file_name):
         os.remove(file_path)
 
 
+
 @app.post("/extract_qr_codes_from_document_file")
 async def extract_qr_codes_from_document_file(file: UploadFile = File(...)):
-    if not (file.filename.lower().endswith('.pdf') or 
-            file.filename.lower().endswith('.jpg') or 
-            file.filename.lower().endswith('.jpeg') or 
-            file.filename.lower().endswith('.png')):
-        raise HTTPException(status_code=400, detail="Only PDF, JPG, JPEG, and PNG files are allowed.")
+    allowed_extensions = ['.pdf', '.jpg', '.jpeg', '.png', '.bmp', '.gif', '.tiff', '.webp']
+    
+    if not any(file.filename.lower().endswith(ext) for ext in allowed_extensions):
+        raise HTTPException(status_code=400, detail="Only PDF, JPG, JPEG, PNG, BMP, GIF, TIFF, and WebP files are allowed.")
     
     suffix = os.path.splitext(file.filename)[1]
     file_path = await save_temp_file(await file.read(), suffix)
@@ -111,8 +112,16 @@ async def extract_qr_codes_from_document_url(url: str):
             suffix = ".jpeg"
         elif 'image/png' in content_type:
             suffix = ".png"
+        elif 'image/bmp' in content_type:
+            suffix = ".bmp"
+        elif 'image/gif' in content_type:
+            suffix = ".gif"
+        elif 'image/tiff' in content_type:
+            suffix = ".tiff"
+        elif 'image/webp' in content_type:
+            suffix = ".webp"
         else:
-            raise HTTPException(status_code=400, detail="The URL does not point to a supported file format (PDF, JPG, JPEG, PNG).")
+            raise HTTPException(status_code=400, detail="The URL does not point to a supported file format (PDF, JPG, JPEG, PNG, BMP, GIF, TIFF, WebP).")
         
     except requests.RequestException as e:
         raise HTTPException(status_code=400, detail=f"Could not retrieve file from URL: {str(e)}")
@@ -120,7 +129,6 @@ async def extract_qr_codes_from_document_url(url: str):
     file_path = await save_temp_file(response.content, suffix)
     file_name = os.path.basename(urlparse(url).path)
     return JSONResponse(content=await handle_extraction(file_path, file_name))
-
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8001)
