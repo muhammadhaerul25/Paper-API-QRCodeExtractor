@@ -12,7 +12,6 @@ from urllib.parse import urlparse
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.responses import JSONResponse
 from ultralytics import YOLO
-from pyzbar.pyzbar import decode
 
 app = FastAPI()
 
