@@ -130,7 +130,7 @@ async def extract_qr_codes_from_document_url(url: str):
         raise HTTPException(status_code=400, detail=f"Could not retrieve file from URL: {str(e)}")
     
     file_path = await save_temp_file(response.content, suffix)
-    file_name = os.path.basename(urlparse(url).path)
+    file_name = url
     return JSONResponse(content=await handle_extraction(file_path, file_name))
 
 
