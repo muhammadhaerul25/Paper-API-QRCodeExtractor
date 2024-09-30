@@ -12,6 +12,7 @@ from urllib.parse import urlparse
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.responses import JSONResponse
 from ultralytics import YOLO
+from pyzbar.pyzbar import decode
 
 app = FastAPI()
 
@@ -43,14 +44,23 @@ class QRCodeExtractor:
             for x1, y1, x2, y2 in result.boxes.xyxy.numpy()
         ]
 
+    # def read_qrcode(self, image_qrcode):
+    #     image_qrcode = np.array(image_qrcode)
+    #     detector = cv2.QRCodeDetector()
+    #     data, points, _ = detector.detectAndDecode(image_qrcode)
+    #     if data:
+    #         return data
+    #     else:
+    #         return None
+
     def read_qrcode(self, image_qrcode):
-        image_qrcode = np.array(image_qrcode)
-        detector = cv2.QRCodeDetector()
-        data, points, _ = detector.detectAndDecode(image_qrcode)
-        if data:
-            return data
+        decoded_objects = decode(image_qrcode)
+        if decoded_objects:
+            link = decoded_objects[0].data.decode("utf-8")
+            return link
         else:
             return None
+
 
     def extract_qr_codes(self):
         images = self.file_to_images()
