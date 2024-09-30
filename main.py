@@ -36,28 +36,29 @@ class QRCodeExtractor:
             return [Image.open(self.file_path).convert('RGB')]
 
     def detect_qrcode(self, image):
+        padding = 10
         image = image.convert('RGB')
         results = self.model([np.array(image)])
+        img_width, img_height = image.size
+        
         return [
-            image.crop((x1, y1, x2, y2))
+            image.crop((
+                max(x1 - padding, 0),                
+                max(y1 - padding, 0),                
+                min(x2 + padding, img_width),        
+                min(y2 + padding, img_height)
+            ))
             for result in results
             for x1, y1, x2, y2 in result.boxes.xyxy.numpy()
         ]
 
-    # def read_qrcode(self, image_qrcode):
-    #     image_qrcode = np.array(image_qrcode)
-    #     detector = cv2.QRCodeDetector()
-    #     data, points, _ = detector.detectAndDecode(image_qrcode)
-    #     if data:
-    #         return data
-    #     else:
-    #         return None
-
+    
     def read_qrcode(self, image_qrcode):
-        decoded_objects = decode(image_qrcode)
-        if decoded_objects:
-            link = decoded_objects[0].data.decode("utf-8")
-            return link
+        image_qrcode = np.array(image_qrcode)
+        detector = cv2.QRCodeDetector()
+        data, points, _ = detector.detectAndDecode(image_qrcode)
+        if data:
+            return data
         else:
             return None
 
