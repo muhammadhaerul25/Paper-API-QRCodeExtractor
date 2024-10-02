@@ -12,9 +12,13 @@ from urllib.parse import urlparse
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.responses import JSONResponse
 from ultralytics import YOLO
+from qreader import QReader
+
 
 app = FastAPI()
 
+
+##--------------------------------------QRCodeExtractor----------------------------------------##
 class QRCodeExtractor:
     def __init__(self, file_path, file_name):
         self.file_path = file_path
@@ -34,30 +38,30 @@ class QRCodeExtractor:
         else:
             return [Image.open(self.file_path).convert('RGB')]
 
-    def detect_qrcode(self, image):
-        padding = 10
+    def detect_qrcode_yolov8(self, image):
+        scale = 1.25
         image = image.convert('RGB')
         results = self.model([np.array(image)])
         img_width, img_height = image.size
-        
+
         return [
             image.crop((
-                max(x1 - padding, 0),                
-                max(y1 - padding, 0),                
-                min(x2 + padding, img_width),        
-                min(y2 + padding, img_height)
+                int(max((x1 + x2) / 2 - (x2 - x1) * scale / 2, 0)),
+                int(max((y1 + y2) / 2 - (y2 - y1) * scale / 2, 0)),
+                int(min((x1 + x2) / 2 + (x2 - x1) * scale / 2, img_width)),
+                int(min((y1 + y2) / 2 + (y2 - y1) * scale / 2, img_height))
             ))
             for result in results
             for x1, y1, x2, y2 in result.boxes.xyxy.numpy()
         ]
 
-    
-    def read_qrcode(self, image_qrcode):
+    def read_qrcode_qreader(self, image_qrcode):
+        qreader = QReader()
         image_qrcode = np.array(image_qrcode)
-        detector = cv2.QRCodeDetector()
-        data, points, _ = detector.detectAndDecode(image_qrcode)
-        if data:
-            return data
+        decoded_text = qreader.detect_and_decode(image=image_qrcode)
+        if decoded_text:
+            link = decoded_text[0]
+            return link
         else:
             return None
 
@@ -66,9 +70,9 @@ class QRCodeExtractor:
         images = self.file_to_images()
         qr_codes = []
         for page_num, image in enumerate(images, start=1):
-            image_qrcodes = self.detect_qrcode(image)
+            image_qrcodes = self.detect_qrcode_yolov8(image)
             for image_qrcode in image_qrcodes:
-                qrcode_value = self.read_qrcode(image_qrcode)
+                qrcode_value = self.read_qrcode_qreader(image_qrcode)
                 if qrcode_value:
                     qr_codes.append({
                         "qrcode_id": self.generate_random_id(),
@@ -81,6 +85,7 @@ class QRCodeExtractor:
         }
 
 
+##--------------------------------------Helper----------------------------------------##
 async def save_temp_file(file_content, suffix):
     with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp_file:
         tmp_file.write(file_content)
@@ -97,6 +102,8 @@ async def handle_extraction(file_path, file_name):
         os.remove(file_path)
 
 
+
+##--------------------------------------Endpoints----------------------------------------##
 @app.post("/extract_qr_codes_from_document_file")
 async def extract_qr_codes_from_document_file(file: UploadFile = File(...)):
     if not (file.filename.lower().endswith('.pdf') or 
@@ -134,5 +141,7 @@ async def extract_qr_codes_from_document_url(url: str):
     return JSONResponse(content=await handle_extraction(file_path, file_name))
 
 
+
+##--------------------------------------Main----------------------------------------##
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8001)
